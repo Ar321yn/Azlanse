@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" type="x-icon" href="Logo.png">
+    <title>AZLANS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(115deg , green, red, green);
+        }
+        #map-container {
+            display: none;
+        }
+        #map {
+            height: 500px;
+            width: 90%;
+            margin: auto;
+            border-radius: 10px;
+        }
+        .search-container {
+            margin: 20px;
+        }
+        .input-field {
+            padding: 10px;
+            font-size: 16px;
+            width: 250px;
+            border: 2px solid #ff4081;
+            border-radius: 25px;
+            outline: none;
+            text-align: center;
+        }
+        .btn-fill {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff4081, #ff8c00);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(255, 64, 129, 0.4);
+            margin: 5px;
+        }
+        .btn-fill:hover {
+            background: linear-gradient(45deg, #ff8c00, #ff4081);
+            transform: scale(1.05);
+        }
+        #distance-info {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        #place-info {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        #place-image {
+            max-width: 90%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin: 10px auto;
+            display: block;
+        }
+        #place-description {
+            font-size: 16px;
+            max-width: 90%;
+            margin: auto;
+            color: #333;
+        }
+        .msd{
+             font-size: 100px;
+      background: linear-gradient(45deg, #ff4081, #1e88e5, #ffeb3b, #8bc34a);
+      background-clip: text;
+      color: transparent;
+      animation: colorChange 3s infinite;
+      text-align: center;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      font-size: 100px;
+  background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #00ff00, #00b0ff, #9c00ff);
+  background-size: 300% 300%;
+  background-clip: text;
+  color: transparent;
+  animation: rainbow 5s linear infinite;
+  text-align: center;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="msd">AZLANS Map</h1>
+    
+    <!-- Selection Before Map Loads -->
+    <div id="map-selection">
+        <h2>Select Map Type:</h2>
+        <button class="btn-fill" onclick="loadMap('standard')">Standard Map</button>
+        <button class="btn-fill" onclick="loadMap('3d')">3D Terrain Map</button>
+    </div>
+
+    <!-- Map & Search Section (Initially Hidden) -->
+    <div id="map-container">
+        <div class="search-container">
+            <input type="text" id="searchBox" class="input-field" placeholder="Enter a location..." oninput="searchPlace()">
+            <button class="btn-fill" onclick="getWalkingRoute()">🚶‍♂️ Get Walking Route</button>
+            <button class="btn-fill" onclick="getMyLocation()">📍 My Location</button>
+           <form action="index2.html">
+               <button class="btn-fill">BACK</button>
+           </form>
+            
+        </div>
+
+        <div id="map"></div>
+
+        <div id="place-info">
+            <img id="place-image" alt="Place Image">
+            <p id="place-description"></p>
+        </div>
+
+        <p id="distance-info"><strong>Walking Distance:</strong> Not calculated yet</p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js">
+    </script>
+            
+    <script>
+        let map, mapType;
+        let markers = [];
+        let routeLayer = null;
+
+        function loadMap(type) {
+            mapType = type;
+
+            document.getElementById("map-selection").style.display = "none";
+            document.getElementById("map-container").style.display = "block";
+
+            map = L.map('map').setView([23.8103, 90.4125], 14); 
+
+            let tileLayerUrl = (type === '3d') 
+                ? 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+                : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+            L.tileLayer(tileLayerUrl, {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        function searchPlace() {
+            const query = document.getElementById("searchBox").value;
+            if (query === "") return;
+
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const place = data[0];
+                        const lat = parseFloat(place.lat);
+                        const lon = parseFloat(place.lon);
+
+                        map.setView([lat, lon], 14);
+
+                        let marker = L.marker([lat, lon]).addTo(map);
+                        marker.bindPopup(`<strong>${place.display_name}</strong>`).openPopup();
+                        markers.push(marker);
+
+                        if (markers.length > 2) {
+                            map.removeLayer(markers.shift());
+                        }
+
+                        fetchPlaceInfo(query);
+                    } else {
+                        alert("No places found.");
+                    }
+                })
+                .catch(error => console.error("Error fetching data:", error));
+        }
+
+        function fetchPlaceInfo(placeName) {
+            const url = `https://en.wikipedia.org/w/api.php?action=query&prop=pageimages|extracts&format=json&pithumbsize=500&exintro&explaintext&origin=*&titles=${encodeURIComponent(placeName)}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const pages = data.query.pages;
+                    const pageId = Object.keys(pages)[0];
+                    const page = pages[pageId];
+
+                    if (page.thumbnail) {
+                        document.getElementById("place-image").src = page.thumbnail.source;
+                        document.getElementById("place-info").style.display = "block";
+                    }
+
+                    document.getElementById("place-description").textContent = page.extract || "No description available.";
+                })
+                .catch(error => console.error("Error fetching image:", error));
+        }
+
+        function getMyLocation() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    map.setView([lat, lon], 14);
+                    let myMarker = L.marker([lat, lon]).addTo(map);
+                    myMarker.bindPopup(`<strong>Your Location</strong>`).openPopup();
+                    markers.unshift(myMarker);
+                },
+                () => alert("Unable to retrieve your location.")
+            );
+        }
+
+        function getWalkingRoute() {
+            if (markers.length < 2) {
+                alert("Select two locations first!");
+                return;
+            }
+
+            let latlng1 = markers[0].getLatLng();
+            let latlng2 = markers[1].getLatLng();
+
+            let routeUrl = `https://router.project-osrm.org/route/v1/foot/${latlng1.lng},${latlng1.lat};${latlng2.lng},${latlng2.lat}?overview=full&geometries=geojson`;
+
+            fetch(routeUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (routeLayer) map.removeLayer(routeLayer);
+
+                    routeLayer = L.geoJSON(data.routes[0].geometry, { color: 'blue' }).addTo(map);
+                    let distance = data.routes[0].distance / 1000;
+                    document.getElementById("distance-info").innerHTML = `<strong>Walking Distance:</strong> ${distance.toFixed(2)} km`;
+                })
+                .catch(error => console.error("Error fetching walking route:", error));
+        }
+    </script>
+
+</body>
+</html>

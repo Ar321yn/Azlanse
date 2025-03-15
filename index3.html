@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" type="x-icon" href="Logo.png">
+  <title>AZLANS</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(115deg, green, red, green);
+      margin: 0;
+      padding: 0;
+    }
+    /* Navbar styles */
+    .navbar {
+      background-color: #333;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+    }
+    .navbar h1 {
+      margin: 0;
+      color: green;
+    }
+    .search-bar {
+      padding: 8px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: none;
+      outline: none;
+      width: 250px;
+    }
+
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: calc(100vh - 60px); /* To leave space for navbar */
+      flex-direction: column;
+    }
+    .gallery-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
+      width: 80%;
+      max-width: 1000px;
+      margin: 20px 0;
+    }
+    .gallery-item {
+      position: relative;
+      overflow: hidden;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+      background-color: #fff;
+    }
+    .gallery-item img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .gallery-item:hover {
+      transform: scale(1.05);
+    }
+    .upload-button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 15px 32px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    .upload-button:hover {
+      background-color: #45a049;
+    }
+    .image-container {
+      position: relative;
+    }
+    .image-container button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .delete-button {
+      background-color: red;
+      right: 10px;
+      top: 10px;
+      position: absolute;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+      color: white;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <div class="navbar">
+    <h1>AZLANS Photo</h1>
+    <form action="index2.html">
+      <button class="upload-button">HOME</button>
+    </form>
+    
+    <input type="text" class="search-bar" id="searchBar" placeholder="Search images..." oninput="filterImages()">
+  </div>
+
+  <div class="container">
+    <button class="upload-button" onclick="triggerUpload()">+</button>
+    <input type="file" id="fileInput" style="display: none;" accept="image/*" onchange="handleImageUpload(event)">
+    <div class="gallery-container" id="galleryContainer">
+      <!-- Images will be dynamically added here -->
+    </div>
+  </div>
+
+  <script>
+    // Function to trigger the file input when + button is clicked
+    function triggerUpload() {
+      document.getElementById('fileInput').click();
+    }
+
+    // Function to handle image upload
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // Create a URL for the image
+      const imageUrl = URL.createObjectURL(file);
+      const imageName = file.name; // Using the file name as a reference for searching
+
+      // Add the image to the gallery
+      const galleryContainer = document.getElementById('galleryContainer');
+
+      const galleryItem = document.createElement('div');
+      galleryItem.classList.add('gallery-item');
+      galleryItem.setAttribute('data-name', imageName.toLowerCase()); // Add data-name attribute for search
+
+      const imageContainer = document.createElement('div');
+      imageContainer.classList.add('image-container');
+
+      const image = document.createElement('img');
+      image.src = imageUrl;
+
+      const editButton = document.createElement('button');
+      editButton.textContent = 'Edit';
+      editButton.onclick = function () {
+        // For simplicity, we'll just prompt for rotation. You can expand this to include cropping, etc.
+        const rotation = prompt('Enter rotation angle (degrees):');
+        image.style.transform = `rotate(${rotation}deg)`;
+      };
+
+      const deleteButton = document.createElement('button');
+      deleteButton.classList.add('delete-button');
+      deleteButton.textContent = 'Delete';
+      deleteButton.onclick = function () {
+        deleteImage(imageUrl, galleryItem);
+      };
+
+      imageContainer.appendChild(image);
+      imageContainer.appendChild(editButton);
+      galleryItem.appendChild(imageContainer);
+      galleryItem.appendChild(deleteButton);
+      galleryContainer.appendChild(galleryItem);
+
+      // Save image to localStorage for persistence (temporary for this session)
+      saveImageToLocalStorage(imageUrl, imageName);
+    }
+
+    // Save image data to localStorage
+    function saveImageToLocalStorage(imageUrl, imageName) {
+      let images = JSON.parse(localStorage.getItem('images')) || [];
+      images.push({ url: imageUrl, name: imageName });
+      localStorage.setItem('images', JSON.stringify(images));
+    }
+
+    // Delete image and remove it from localStorage
+    function deleteImage(imageUrl, galleryItem) {
+      // Remove image from localStorage
+      let images = JSON.parse(localStorage.getItem('images')) || [];
+      images = images.filter(img => img.url !== imageUrl);
+      localStorage.setItem('images', JSON.stringify(images));
+
+      // Remove the image element from the gallery
+      galleryItem.remove();
+    }
+
+    // Filter images based on search input
+    function filterImages() {
+      const query = document.getElementById('searchBar').value.toLowerCase();
+      const galleryItems = document.querySelectorAll('.gallery-item');
+
+      galleryItems.forEach(item => {
+        const imageName = item.getAttribute('data-name');
+        if (imageName.includes(query)) {
+          item.style.display = 'block';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    // Load saved images from localStorage when page is reloaded
+    window.onload = function () {
+      const images = JSON.parse(localStorage.getItem('images')) || [];
+      const galleryContainer = document.getElementById('galleryContainer');
+
+      images.forEach(imageData => {
+        const galleryItem = document.createElement('div');
+        galleryItem.classList.add('gallery-item');
+        galleryItem.setAttribute('data-name', imageData.name.toLowerCase()); // Add data-name attribute for search
+
+        const imageContainer = document.createElement('div');
+        imageContainer.classList.add('image-container');
+
+        const image = document.createElement('img');
+        image.src = imageData.url;
+
+        const editButton = document.createElement('button');
+        editButton.textContent = 'Edit';
+        editButton.onclick = function () {
+          // Allow rotation edit
+          const rotation = prompt('Enter rotation angle (degrees):');
+          image.style.transform = `rotate(${rotation}deg)`;
+        };
+
+        const deleteButton = document.createElement('button');
+        deleteButton.classList.add('delete-button');
+        deleteButton.textContent = 'Delete';
+        deleteButton.onclick = function () {
+          deleteImage(imageData.url, galleryItem);
+        };
+
+        imageContainer.appendChild(image);
+        imageContainer.appendChild(editButton);
+        galleryItem.appendChild(imageContainer);
+        galleryItem.appendChild(deleteButton);
+        galleryContainer.appendChild(galleryItem);
+      });
+    };
+  </script>
+
+</body>
+</html>
